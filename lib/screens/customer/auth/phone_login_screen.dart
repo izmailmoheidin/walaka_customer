@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../services/customer_auth_service.dart';
+import '../../../theme/app_theme.dart';
 import '../../../constants/app_constants.dart';
-import '../../customer/home/home_screen.dart';
+import '../../customer/home/game_home_screen.dart';
+import 'package:flutter/foundation.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({Key? key}) : super(key: key);
@@ -11,153 +13,282 @@ class PhoneLoginScreen extends StatefulWidget {
   State<PhoneLoginScreen> createState() => _PhoneLoginScreenState();
 }
 
-class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
+class _PhoneLoginScreenState extends State<PhoneLoginScreen>
+    with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _otpSent = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+    
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _otpController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
-  void _sendOTP() {
-    if (_formKey.currentState!.validate()) {
-      final phoneNumber = '+${_phoneController.text.trim()}';
-      context.read<CustomerAuthService>().sendOTP(phoneNumber);
-      setState(() {
-        _otpSent = true;
-      });
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your phone number';
     }
+    // Accept any phone number format for easier testing
+    return null;
   }
 
-  void _verifyOTP() async {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      final success = await context.read<CustomerAuthService>().verifyOTP(
-        _otpController.text.trim(),
-      );
-
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
-        );
+      final authService = context.read<CustomerAuthService>();
+      String phoneNumber = _phoneController.text.trim();
+      
+      // Ensure the phone number has the correct format
+      if (!phoneNumber.startsWith('+')) {
+        phoneNumber = '+$phoneNumber';
       }
+      
+      // Call the direct login method that skips OTP verification
+      final success = await authService.directLoginWithPhone(phoneNumber);
+      
+      // No need to navigate - auth_wrapper will handle redirection if login is successful
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<CustomerAuthService>();
+    final isLoading = authService.isLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 24),
-                  Image.asset(
-                    'assets/images/logo.png',
-                    height: 120,
-                    errorBuilder: (context, _, __) => const Icon(
-                      Icons.storefront,
-                      size: 120,
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    AppConstants.appName,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _otpSent ? 'Enter OTP sent to your phone' : 'Login with your phone number',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 24),
-                  if (!_otpSent)
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        hintText: 'e.g., 254712345678',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your phone number';
-                        }
-                        return null;
-                      },
-                    ),
-                  if (_otpSent) ...[
-                    TextFormField(
-                      controller: _otpController,
-                      decoration: const InputDecoration(
-                        labelText: 'One-Time Password',
-                        hintText: 'Enter the 6-digit code',
-                        prefixIcon: Icon(Icons.security),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter the OTP';
-                        }
-                        if (value.length != 6) {
-                          return 'OTP must be 6 digits';
-                        }
-                        return null;
-                      },
-                    ),
-                    TextButton(
-                      onPressed: authService.isLoading ? null : _sendOTP,
-                      child: const Text('Resend OTP'),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  if (authService.error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        authService.error!,
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ElevatedButton(
-                    onPressed: authService.isLoading
-                        ? null
-                        : (_otpSent ? _verifyOTP : _sendOTP),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: authService.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_otpSent ? 'Verify OTP' : 'Send OTP'),
-                  ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text('Login', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w500)),
+        leading: Navigator.canPop(context) ? BackButton(color: Colors.blue.shade800) : null,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark 
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black,
+                  Colors.black.withBlue(30),
                 ],
+              )
+            : AppTheme.backgroundGradient,
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey.shade900 : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Logo
+                        Center(
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: AppTheme.logoDecoration,
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/new_logo.png',
+                                height: 80,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, _, __) => Icon(
+                                  Icons.storefront,
+                                  size: 60,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // App Name
+                        Text(
+                          'Walalka Store',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Tagline
+                        Text(
+                          'Shop anytime, anywhere',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        
+                        // Login instruction
+                        Text(
+                          'Enter your phone number to continue',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // Phone number input field
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: AppTheme.inputDecoration(
+                            'Phone Number',
+                            hint: 'Enter your phone number',
+                            prefixIcon: const Icon(Icons.phone),
+                          ).copyWith(prefixText: '+252 '),
+                          validator: _validatePhone,
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // Error message
+                        if (authService.error != null)
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              authService.error!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        if (authService.error != null) const SizedBox(height: 16),
+                        
+                        // Login button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: authService.isLoading ? null : _login,
+                            style: AppTheme.primaryButtonStyle,
+                            child: authService.isLoading
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Continue',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Development mode notice
+                        if (kDebugMode)
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Text(
+                              'Development Mode - Login without OTP',
+                              style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        if (kDebugMode) const SizedBox(height: 8),
+                        
+                        // Help text
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Having trouble logging in?',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // Add help functionality if needed
+                              },
+                              child: Text('Get Help', 
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

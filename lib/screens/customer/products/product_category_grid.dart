@@ -56,43 +56,110 @@ class CategoryCard extends StatelessWidget {
         );
       },
       child: Card(
-        elevation: 4,
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: category.imageUrl != null && category.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      category.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) => const Center(
-                        child: Icon(
-                          Icons.category,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(
-                        Icons.category,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
+              flex: 3, // Give more space to the image
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Image container with proper sizing
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
                     ),
+                    child: category.imageUrl != null && category.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          category.imageUrl!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          cacheHeight: 300, // Optimize memory usage
+                          cacheWidth: 300, // Optimize memory usage
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / 
+                                    (loadingProgress.expectedTotalBytes ?? 1)
+                                  : null,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.category,
+                                    size: 40,
+                                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'No Image',
+                                    style: TextStyle(
+                                      color: Theme.of(context).primaryColor.withOpacity(0.5),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.category,
+                                size: 40,
+                                color: Theme.of(context).primaryColor.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'No Image',
+                                style: TextStyle(
+                                  color: Theme.of(context).primaryColor.withOpacity(0.5),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                  ),
+                ],
+              ),
             ),
             Container(
-              padding: const EdgeInsets.all(12),
-              color: Theme.of(context).primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
               child: Text(
                 category.name,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),

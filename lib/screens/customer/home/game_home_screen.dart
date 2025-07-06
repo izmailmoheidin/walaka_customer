@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../providers/categories_provider.dart';
 import '../../../providers/products_provider.dart';
 import '../../../providers/cart_provider.dart';
-import '../../../utils/firebase_image_helper.dart';
 import '../../../services/customer_auth_service.dart';
+import '../../../utils/firebase_image_helper.dart';
 import '../products/game_category_screen.dart';
 
 class GameHomeScreen extends StatefulWidget {
@@ -46,6 +46,135 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CategoriesProvider>().fetchCategories();
     });
+  }
+  
+  // Build a fallback banner image when the network image fails to load
+  Widget _buildBannerFallbackImage(String title) {
+    // Generate a color based on the title
+    final int hash = title.hashCode;
+    final double hue = (hash % 360).toDouble();
+    final Color baseColor = HSLColor.fromAHSL(1.0, hue, 0.6, 0.4).toColor();
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            baseColor,
+            baseColor.withOpacity(0.7),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Background pattern
+          CustomPaint(
+            painter: BannerPatternPainter(
+              color: Colors.white.withOpacity(0.1),
+            ),
+            size: Size.infinite,
+          ),
+          // Game icon
+          Center(
+            child: Icon(
+              Icons.sports_esports,
+              size: 80,
+              color: Colors.white.withOpacity(0.3),
+            ),
+          ),
+          // Walalka logo or text
+          Positioned(
+            top: 20,
+            right: 20,
+            child: Text(
+              'WALALKA GAMES',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Build a fallback category image with decorative pattern and icon
+  Widget _buildCategoryFallbackImage(String categoryName) {
+    final int hash = categoryName.hashCode;
+    final double hue = (hash % 360).toDouble();
+    final Color baseColor = HSLColor.fromAHSL(1.0, hue, 0.6, 0.4).toColor();
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            baseColor,
+            baseColor.withOpacity(0.7),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          CustomPaint(
+            painter: BannerPatternPainter(color: Colors.white.withOpacity(0.1)),
+            size: Size.infinite,
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _getCategoryIcon(categoryName),
+                  size: 40,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  categoryName,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Get an appropriate icon based on category name
+  IconData _getCategoryIcon(String categoryName) {
+    final name = categoryName.toLowerCase();
+    
+    if (name.contains('game') || name.contains('play')) {
+      return Icons.sports_esports;
+    } else if (name.contains('food') || name.contains('meal')) {
+      return Icons.restaurant;
+    } else if (name.contains('drink') || name.contains('beverage')) {
+      return Icons.local_drink;
+    } else if (name.contains('sport')) {
+      return Icons.sports_basketball;
+    } else if (name.contains('tech') || name.contains('electronic')) {
+      return Icons.devices;
+    } else if (name.contains('fashion') || name.contains('cloth')) {
+      return Icons.shopping_bag;
+    } else if (name.contains('beauty') || name.contains('cosmetic')) {
+      return Icons.spa;
+    } else if (name.contains('home') || name.contains('furniture')) {
+      return Icons.home;
+    } else {
+      return Icons.category;
+    }
   }
 
   @override
@@ -209,17 +338,45 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                       itemBuilder: (context, index) {
                         final banner = _banners[index];
                         return Container(
-                          width: MediaQuery.of(context).size.width,
-                          margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                          height: 180,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
-                            image: DecorationImage(
-                              image: NetworkImage(banner['image']),
-                              fit: BoxFit.cover,
-                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Stack(
                             children: [
+                              // Banner image
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: FirebaseImageWidget(
+                                    imageUrl: banner['image'],
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    fit: BoxFit.cover,
+                                    borderRadius: BorderRadius.circular(16),
+                                    placeholder: Stack(
+                                      children: [
+                                        _buildBannerFallbackImage(banner['title']),
+                                        const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    errorWidget: _buildBannerFallbackImage(banner['title']),
+                                  ),
+                                ),
+                              ),
+                              // Gradient overlay for better text readability
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(16),
@@ -393,26 +550,31 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
                                           children: [
                                             Expanded(
                                               flex: 2,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.blue.shade900,
-                                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                                ),
-                                                child: FirebaseImageHelper.buildImage(
-                                                  imageUrl: category.imageUrl,
-                                                  width: double.infinity,
-                                                  height: double.infinity,
-                                                  fit: BoxFit.cover,
-                                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                                  errorWidget: Icon(
-                                                    Icons.games,
-                                                    size: 40,
-                                                    color: Colors.white.withOpacity(0.7),
+                                              child: AspectRatio(
+                                                aspectRatio: 16/9,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.blue.shade900,
+                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                                                   ),
-                                                  placeholder: Center(
-                                                    child: CircularProgressIndicator(
-                                                      color: Colors.white,
-                                                    ),
+                                                  child: ClipRRect(
+                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                                    child: category.imageUrl != null && category.imageUrl!.isNotEmpty
+                                                      ? FirebaseImageWidget(
+                                                          imageUrl: category.imageUrl,
+                                                          width: double.infinity,
+                                                          height: double.infinity,
+                                                          fit: BoxFit.cover,
+                                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                                          placeholder: Center(
+                                                            child: CircularProgressIndicator(
+                                                              color: Colors.white,
+                                                              strokeWidth: 2,
+                                                            ),
+                                                          ),
+                                                          errorWidget: _buildCategoryFallbackImage(category.name),
+                                                        )
+                                                      : _buildCategoryFallbackImage(category.name),
                                                   ),
                                                 ),
                                               ),
@@ -488,4 +650,41 @@ class _GameHomeScreenState extends State<GameHomeScreen> {
       ),
     );
   }
+}
+
+/// Custom painter for banner patterns
+class BannerPatternPainter extends CustomPainter {
+  final Color color;
+  
+  BannerPatternPainter({required this.color});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+      
+    // Draw diagonal lines pattern
+    final spacing = 40.0;
+    for (double i = -size.width; i < size.width + size.height; i += spacing) {
+      canvas.drawLine(
+        Offset(i, 0),
+        Offset(i + size.height, size.height),
+        paint,
+      );
+    }
+    
+    // Draw circles
+    final circlePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+      
+    canvas.drawCircle(Offset(size.width * 0.8, size.height * 0.2), 10, circlePaint);
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.8), 15, circlePaint);
+    canvas.drawCircle(Offset(size.width * 0.7, size.height * 0.9), 8, circlePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
